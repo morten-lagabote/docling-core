@@ -54,6 +54,7 @@ from docling_core.types.doc import (
     FormItem,
     FormulaItem,
     GroupItem,
+    GroupLabel,
     ImageRef,
     ImageRefMode,
     InlineGroup,
@@ -1206,6 +1207,9 @@ class MarkdownFallbackSerializer(BaseFallbackSerializer):
         if isinstance(item, GroupItem):
             parts = doc_serializer.get_parts(item=item, **kwargs)
             text_res = "\n\n".join([p.text for p in parts if p.text])
+            # a table cell is a single line, which cannot hold a block quote
+            if item.label == GroupLabel.BLOCK_QUOTE and text_res and not kwargs.get("in_table_cell"):
+                text_res = "\n".join(f"> {line}" if line else ">" for line in text_res.split("\n"))
             return create_ser_result(text=text_res, span_source=parts)
         elif isinstance(item, (FieldRegionItem, FieldItem)):
             return create_ser_result()

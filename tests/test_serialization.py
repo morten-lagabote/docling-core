@@ -49,7 +49,7 @@ from docling_core.types.doc.document import (
     TableData,
     TextItem,
 )
-from docling_core.types.doc.labels import DocItemLabel
+from docling_core.types.doc.labels import DocItemLabel, GroupLabel
 
 from .test_data_gen_flag import GEN_TEST_DATA
 
@@ -1088,6 +1088,55 @@ def test_md_line_breaks():
     assert "\n" not in result.split("|")[1].strip()
 
 
+def _block_quote_doc() -> DoclingDocument:
+    """A quote that holds a paragraph, a list, a code block and a nested quote."""
+    doc = DoclingDocument(name="block_quote")
+    doc.add_text(label=DocItemLabel.TEXT, text="Before.")
+    quote = doc.add_group(label=GroupLabel.BLOCK_QUOTE)
+    doc.add_text(label=DocItemLabel.TEXT, text="Line one\nLine two", parent=quote)
+    items = doc.add_list_group(parent=quote)
+    doc.add_list_item(text="one", parent=items)
+    doc.add_list_item(text="two", parent=items)
+    doc.add_code(text="x = 1\n\ny = 2", parent=quote)
+    nested = doc.add_group(label=GroupLabel.BLOCK_QUOTE, parent=quote)
+    doc.add_text(label=DocItemLabel.TEXT, text="Nested.", parent=nested)
+    doc.add_text(label=DocItemLabel.TEXT, text="After.")
+    return doc
+
+
+def test_md_block_quote():
+    """A block quote group marks every line of its content, including the blank ones."""
+    assert MarkdownDocSerializer(doc=_block_quote_doc()).serialize().text == (
+        "Before.\n\n"
+        "> Line one  \n> Line two\n>\n"
+        "> - one\n> - two\n>\n"
+        "> ```\n> x = 1\n>\n> y = 2\n> ```\n>\n"
+        "> > Nested.\n\n"
+        "After."
+    )
+
+
+def test_md_block_quote_in_rich_table_cell_has_no_marker():
+    """A table cell is a single line, so a quote in a rich cell keeps its text only."""
+    doc = DoclingDocument(name="block_quote_in_table")
+    table = doc.add_table(data=TableData(num_rows=1, num_cols=1))
+    quote = doc.add_group(label=GroupLabel.BLOCK_QUOTE, parent=table)
+    doc.add_text(label=DocItemLabel.TEXT, text="Quoted.", parent=quote)
+    doc.add_table_cell(
+        table,
+        RichTableCell(
+            start_row_offset_idx=0,
+            end_row_offset_idx=1,
+            start_col_offset_idx=0,
+            end_col_offset_idx=1,
+            ref=quote.get_ref(),
+        ),
+    )
+    md = MarkdownDocSerializer(doc=doc).serialize().text
+    assert "Quoted." in md
+    assert ">" not in md
+
+
 # ===============================
 # HTML tests
 # ===============================
@@ -1458,6 +1507,21 @@ def test_html_textitem_with_children_at_document_level():
     assert body.count("PARENT-TEXT") == 1, f"PARENT-TEXT should appear exactly once:\n{body}"
     assert body.count("CHILD-TEXT") == 1, f"CHILD-TEXT should appear exactly once:\n{body}"
     assert body.find("PARENT-TEXT") < body.find("CHILD-TEXT"), f"PARENT-TEXT should appear before CHILD-TEXT:\n{body}"
+
+
+def test_html_block_quote():
+    """A block quote group wraps its content, also when a quote holds a quote."""
+    out = HTMLDocSerializer(doc=_block_quote_doc()).serialize().text
+    assert (
+        "<p>Before.</p>\n"
+        "<blockquote>\n"
+        "<p>Line one<br>Line two</p>\n"
+        "<ul>\n<li>one</li>\n<li>two</li>\n</ul>\n"
+        "<pre><code>x = 1\n\ny = 2</code></pre>\n"
+        "<blockquote>\n<p>Nested.</p>\n</blockquote>\n"
+        "</blockquote>\n"
+        "<p>After.</p>"
+    ) in out
 
 
 def test_html_inline_and_formatting():

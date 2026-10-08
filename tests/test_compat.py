@@ -45,6 +45,7 @@ from docling_core.types.doc.common.constants import (
     SCHEMA_VERSION_HISTORY,
 )
 from docling_core.types.doc.document import DoclingDocument
+from docling_core.types.doc.labels import DocItemLabel, GroupLabel
 
 # Root of the repository, used to locate docs/schemas/.
 _REPO_ROOT = Path(__file__).parent.parent
@@ -241,6 +242,26 @@ class TestProjectorCoverage:
 # ---------------------------------------------------------------------------
 # 2. Unit tests per projector
 # ---------------------------------------------------------------------------
+
+
+class TestProjector_1_11_to_1_10:
+    """Tests for the 1.11 → 1.10 downgrade projector."""
+
+    def test_block_quote_group_becomes_plain_group(self):
+        """A 1.10 client gets the quoted content in a group with a label that it knows."""
+        doc = DoclingDocument(name="block_quote")
+        quote = doc.add_group(label=GroupLabel.BLOCK_QUOTE)
+        doc.add_text(label=DocItemLabel.TEXT, text="Quoted.", parent=quote)
+        section = doc.add_group(label=GroupLabel.SECTION)
+        doc.add_text(label=DocItemLabel.TEXT, text="Not quoted.", parent=section)
+
+        result = project_to(doc, target_version="1.10.0")
+
+        assert result.version == "1.10.0"
+        assert [group.label for group in result.groups] == [GroupLabel.UNSPECIFIED, GroupLabel.SECTION]
+        assert result.groups[0].children == quote.children
+        target_schema = json.loads((_SCHEMAS_DIR / "DoclingDocument_1_10.json").read_text())
+        jsonschema.validate(instance=result.model_dump(mode="json", by_alias=True), schema=target_schema)
 
 
 class TestProjector_1_10_to_1_9:

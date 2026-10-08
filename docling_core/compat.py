@@ -192,11 +192,39 @@ def list_projectors() -> list[tuple[int, int]]:
 # ---------------------------------------------------------------------------
 # Projectors — one per schema minor bump within docling-core v2.x
 # ---------------------------------------------------------------------------
-# These cover every schema version step from the current schema (1.10) down
+# These cover every schema version step from the current schema (1.11) down
 # to the oldest v2.x schema (1.5).  Each projector represents the *minimal*
 # structural downgrade that allows an old client's Pydantic model to parse
 # the serialised dict without error.  Full semantic fidelity is not always
 # possible; the goal is a document that validates rather than crashes.
+
+# --- 1.11 → 1.10 ----------------------------------------------------------
+# Schema 1.11:
+#   • Added GroupLabel.BLOCK_QUOTE.
+#
+# Downgrade strategy:
+#   • Relabel block quote groups as "unspecified". The group keeps its
+#     children, so the quoted content stays in place as plain blocks.
+# ---------------------------------------------------------------------------
+
+
+@register_projector(from_minor=11, to_minor=10)
+def _project_1_11_to_1_10(data: dict) -> dict:
+    """Downgrade a schema 1.11 document dict to schema 1.10.
+
+    Handles:
+    - Relabels ``block_quote`` groups as ``unspecified`` groups.
+    """
+    data = dict(data)
+
+    data["groups"] = [
+        {**group, "label": "unspecified"} if group.get("label") == "block_quote" else group
+        for group in data.get("groups", [])
+    ]
+
+    data["version"] = "1.10.0"
+    return data
+
 
 # --- 1.10 → 1.9 -----------------------------------------------------------
 # Schema 1.10 (docling-core v2.69.0, PR #519):

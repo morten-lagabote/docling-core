@@ -99,6 +99,7 @@ class GroupLabel(str, Enum):
     COMMENT_SECTION = "comment_section"
     INLINE = "inline"
     PICTURE_AREA = "picture_area"
+    BLOCK_QUOTE = "block_quote"  # group of the blocks that make up a quotation (e.g. HTML <blockquote/>)
 
     def __str__(self):
         """Get string value."""

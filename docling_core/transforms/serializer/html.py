@@ -83,7 +83,7 @@ from docling_core.types.doc.document import (
     TitleItem,
     TopicsMetaField,
 )
-from docling_core.types.doc.labels import DocItemLabel
+from docling_core.types.doc.labels import DocItemLabel, GroupLabel
 from docling_core.types.doc.utils import (
     get_html_tag_with_text_direction,
     get_text_direction,
@@ -918,6 +918,8 @@ class HTMLFallbackSerializer(BaseFallbackSerializer):
         if isinstance(item, GroupItem):
             parts = doc_serializer.get_parts(item=item, **kwargs)
             text_res = "\n".join([p.text for p in parts if p.text])
+            if item.label == GroupLabel.BLOCK_QUOTE and text_res:
+                text_res = f"<blockquote>\n{text_res}\n</blockquote>"
             return create_ser_result(text=text_res, span_source=parts)
         else:
             return create_ser_result(
